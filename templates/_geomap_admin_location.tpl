@@ -7,11 +7,15 @@
 {% block widget_id %}content-location{% endblock %}
 
 {% block widget_content %}
-<div id="{{ #lazy }}">
-    {% lazy action={update target=#lazy id=id template="_geomap_admin_location_map.tpl"}%}
-</div>
+    {% if m.config.mod_geo.api_key.value %}
+        <div id="{{ #lazy }}">
+            {% lazy action={update target=#lazy id=id template="_geomap_admin_location_map.tpl"}%}
+        </div>
+    {% else %}
+        <p>{_ Please configure <b>mod_geo</b> first by going to the modules page. _}</p>
+    {% endif %}
 {% endblock %}
 
 {% block widget_after %}
-{% lib "css/geomap.css" %}
+    {% lib "css/geomap.css" %}
 {% endblock %}

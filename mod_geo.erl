@@ -1,8 +1,10 @@
 %% @author Marc Worrell <marc@worrell.nl>
+%% @author Arjan Scherpenisse <arjan@miraclethings.nl>
 %% @copyright 2012 Marc Worrell
-%% @doc Calculate a quadtile code from a lat/long location.
+%% @copyright 2014 Arjan Scherpenisse
+%% @doc Storing lat/lng in resource pivot columns and providing search routines.
 
-%% Copyright 2012 Marc Worrell
+%% Copyright 2012 Marc Worrell, 2014 Arjan Scherpenisse
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,26 +18,26 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
--module(mod_geomap).
--author("Marc Worrell <marc@worrell.nl>").
+-module(mod_geo).
 
--mod_title("GeoMap services").
--mod_description("Maps, mapping, geocoding and geo calculations..").
--mod_prio(520).
+-mod_title("Geo support").
+-mod_description("Geocoding and geo calculations, supported by Google Maps").
+-mod_prio(400).
 -mod_depends([mod_l10n]).
 
 -export([
     event/2,
     
-    observe_rsc_get/3,
-    observe_pivot_update/3,
     observe_pivot_fields/3,
-
-    find_geocode/3,
+         observe_module_configurable/2,
+         
     find_geocode_api/3
 ]).
 
 -include_lib("zotonic.hrl").
+
+observe_module_configurable({module_configurable}, _C) ->
+    ?MODULE.
 
 %% @doc Handle an address lookup from the admin.
 %% @todo Maybe add check if the user is allowed to use the admin.
@@ -47,7 +49,7 @@ event(#postback_notify{message="address_lookup"}, Context) ->
             {address_postcode, z_context:get_q("postcode", Context)},
             {address_country, z_context:get_q("country", Context)}
         ], Context),
-    case find_geocode(Q, Type, Context) of
+    case find_geocode_api(Q, Type, Context) of
         {error, _} ->
             z_script:add_script("map_mark_location_error();", Context);
         {ok, {Lat, Long}} ->
@@ -55,66 +57,23 @@ event(#postback_notify{message="address_lookup"}, Context) ->
     end.
 
 
-%% @doc Append computed latitude and longitude values to the resource.
-observe_rsc_get(#rsc_get{}, Props, _Context) ->
-    case proplists:get_value(pivot_geocode, Props) of
-        undefined -> 
-            Props;
-        Quadtile ->
-            {Lat, Long} = geomap_quadtile:decode(Quadtile),
-            [
-                {computed_location_lat, Lat},
-                {computed_location_lng, Long}
-                | Props
-            ]
-    end.
-
 
 %% @doc Check if the latitude/longitude are set, if so the pivot the pivot_geocode.
 %%      If not then try to derive the lat/long from the rsc's address data.
-observe_pivot_update(#pivot_update{}, KVs, _Context) ->
-    case {catch z_convert:to_float(proplists:get_value(location_lat, KVs)),
-          catch z_convert:to_float(proplists:get_value(location_lng, KVs))}
-    of
-        {Lat, Long} when is_float(Lat), is_float(Long) ->
-            [ 
-                {pivot_geocode, geomap_quadtile:encode(Lat, Long)},
-                {pivot_geocode_qhash, undefined}
-                | KVs
-            ];
-        _ -> 
-            KVs
-    end.
-
-
-%% @doc Check if the latitude/longitude are set, if so the pivot the pivot_geocode.
-%%      If not then try to derive the lat/long from the rsc's address data.
-observe_pivot_fields(#pivot_fields{rsc=R}, KVs, Context) ->
+observe_pivot_fields(#pivot_fields{id=Id, rsc=R}, KVs, Context) ->
     case {catch z_convert:to_float(proplists:get_value(location_lat, R)),
-          catch z_convert:to_float(proplists:get_value(location_lng, R))}
-    of
+          catch z_convert:to_float(proplists:get_value(location_lng, R))} of
         {Lat, Long} when is_float(Lat), is_float(Long) ->
-            [ 
-                {pivot_geocode, geomap_quadtile:encode(Lat, Long)},
-                {pivot_geocode_qhash, undefined} 
-                | KVs
-            ];
+            KVs; %% OK, do not change
         _ ->
             % Optionally geocode the address in the resource.
             % When successful this will spawn a new geocode pivot.
             case optional_geocode(R, Context) of
                 reset -> 
-                    [ 
-                        {pivot_geocode, undefined},
-                        {pivot_geocode_qhash, undefined} 
-                        | KVs
-                    ];
+                    KVs;
                 {ok, Lat, Long, QHash} ->
-                    [ 
-                        {pivot_geocode, geomap_quadtile:encode(Lat, Long)},
-                        {pivot_geocode_qhash, QHash} 
-                        | KVs
-                    ];
+                    m_rsc:update(Id, [{location_lat, Lat}, {location_lng, Long}, {geocode_qhash, QHash}], Context),
+                    KVs;
                 ok -> 
                     KVs
             end
@@ -135,14 +94,14 @@ optional_geocode(R, Context) ->
                 {ok, _, <<>>} ->
                     reset;
                 {ok, Type, Q} ->
-                    LocHash = crypto:md5(Q),
+                    LocHash = crypto:hash(md5, Q),
                     case proplists:get_value(pivot_geocode_qhash, R) of
                         LocHash ->
                             % Not changed since last lookup 
                             ok;
                         _ ->
                             % Changed, and we are doing automatic lookups
-                            case find_geocode(Q, Type, Context) of
+                            case find_geocode_api(Q, Type, Context) of
                                 {error, _} ->
                                     reset;
                                 {ok, {NewLat,NewLong}} ->
@@ -152,14 +111,6 @@ optional_geocode(R, Context) ->
             end
     end.
 
-
-find_geocode(Q, Type, Context) ->
-    case geomap_precoded:find_geocode(Q, Type) of
-        {ok, {_, _}} = OK ->
-            OK;
-        {error, notfound} ->
-            find_geocode_api(Q, Type, Context) 
-    end.
 
 %% @doc Check with Google and OpenStreetMap if they know the address
 find_geocode_api(Q, country, _Context) ->
@@ -317,4 +268,3 @@ country_name(undefined, _Context) -> <<>>;
 country_name(<<"gb-nir">>, _Context) -> <<"Northern Ireland">>;
 country_name(Iso, Context) ->
     m_l10n:country_name(Iso, en, Context).
-

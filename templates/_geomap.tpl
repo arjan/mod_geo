@@ -1,20 +1,18 @@
 {# Experimental, needs better parametrization (like resource id and div size) #}
 <div id="{{ element_id|default:#map }}" style="width: 700px; height: 480px;"></div>
 
+<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=API_KEY&sensor=false"></script>
+
 {% javascript %}
-OpenLayers.ImgPath = '/lib/images/'
-setTimeout(function() {
-    var marker;
+    function initializeAdminGeomap() {
 
-    var map = new OpenLayers.Map('{{ element_id|default:#map }}');
-    var layer = new OpenLayers.Layer.OSM("OpenStreetMap");
-    map.addLayer(layer);
-    var markers = new OpenLayers.Layer.Markers("{_ Markers _}");
-    map.addLayer(markers);
+        var mapOptions = {
+          center: new google.maps.LatLng(-34.397, 150.644),
+          zoom: 8
+        };
+        var map = new google.maps.Map(document.getElementById('{{ element_id|default:#map }}'), mapOptions);
 
-    var marker_size = new OpenLayers.Size(21,25);
-    var marker_offset = new OpenLayers.Pixel(-(marker_size.w/2), -marker_size.h);
-    var marker_icon = new OpenLayers.Icon('/lib/images/marker.png', marker_size, marker_offset);
+    
 
     {% if longitude|is_defined and latitude|is_defined %}
         var map_location = new OpenLayers
@@ -29,5 +27,6 @@ setTimeout(function() {
         var map_location = new OpenLayers.LonLat(0, 0);
         map.setCenter(map_location, 2);
     {% endif %}
-}, 500);
+    }
+    google.maps.event.addDomListener(window, 'load', initializeAdminGeomap);
 {% endjavascript %}
