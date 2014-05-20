@@ -94,7 +94,7 @@ optional_geocode(R, Context) ->
                 {ok, _, <<>>} ->
                     reset;
                 {ok, Type, Q} ->
-                    LocHash = crypto:hash(md5, Q),
+                    LocHash = lists:flatten(z_utils:checksum(Q, Context)),
                     case proplists:get_value(pivot_geocode_qhash, R) of
                         LocHash ->
                             % Not changed since last lookup 
