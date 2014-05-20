@@ -15,7 +15,3 @@
         <p>{_ Please configure <b>mod_geo</b> first by going to the modules page. _}</p>
     {% endif %}
 {% endblock %}
-
-{% block widget_after %}
-    {% lib "css/geomap.css" %}
-{% endblock %}

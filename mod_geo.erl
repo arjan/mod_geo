@@ -25,30 +25,27 @@
 -mod_prio(400).
 -mod_depends([mod_l10n]).
 
--export([
+-export(
+   [
     event/2,
-    
+    observe_search_query/2,
     observe_pivot_fields/3,
-         observe_module_configurable/2,
-         
     find_geocode_api/3
-]).
+   ]).
 
 -include_lib("zotonic.hrl").
 
-observe_module_configurable({module_configurable}, _C) ->
-    ?MODULE.
 
 %% @doc Handle an address lookup from the admin.
 %% @todo Maybe add check if the user is allowed to use the admin.
 event(#postback_notify{message="address_lookup"}, Context) ->
     {ok, Type, Q} = q([
-            {address_street_1, z_context:get_q("street", Context)},
-            {address_city, z_context:get_q("city", Context)},
-            {address_state, z_context:get_q("state", Context)},
-            {address_postcode, z_context:get_q("postcode", Context)},
-            {address_country, z_context:get_q("country", Context)}
-        ], Context),
+                       {address_street_1, z_context:get_q("street", Context)},
+                       {address_city, z_context:get_q("city", Context)},
+                       {address_state, z_context:get_q("state", Context)},
+                       {address_postcode, z_context:get_q("postcode", Context)},
+                       {address_country, z_context:get_q("country", Context)}
+                      ], Context),
     case find_geocode_api(Q, Type, Context) of
         {error, _} ->
             z_script:add_script("map_mark_location_error();", Context);
@@ -56,6 +53,9 @@ event(#postback_notify{message="address_lookup"}, Context) ->
             z_script:add_script(io_lib:format("map_mark_location(~p,~p);", [Long, Lat]), Context)
     end.
 
+
+observe_search_query(#search_query{}=Q, Context) ->
+    z_geo_search:search_query(Q, Context).
 
 
 %% @doc Check if the latitude/longitude are set, if so the pivot the pivot_geocode.
@@ -66,8 +66,8 @@ observe_pivot_fields(#pivot_fields{id=Id, rsc=R}, KVs, Context) ->
         {Lat, Long} when is_float(Lat), is_float(Long) ->
             KVs; %% OK, do not change
         _ ->
-            % Optionally geocode the address in the resource.
-            % When successful this will spawn a new geocode pivot.
+                                                % Optionally geocode the address in the resource.
+                                                % When successful this will spawn a new geocode pivot.
             case optional_geocode(R, Context) of
                 reset -> 
                     KVs;
@@ -97,10 +97,10 @@ optional_geocode(R, Context) ->
                     LocHash = lists:flatten(z_utils:checksum(Q, Context)),
                     case proplists:get_value(pivot_geocode_qhash, R) of
                         LocHash ->
-                            % Not changed since last lookup 
+                                                % Not changed since last lookup 
                             ok;
                         _ ->
-                            % Changed, and we are doing automatic lookups
+                                                % Changed, and we are doing automatic lookups
                             case find_geocode_api(Q, Type, Context) of
                                 {error, _} ->
                                     reset;
@@ -125,7 +125,7 @@ find_geocode_api(Q, _Type, Context) ->
             Ok
     end.
 
-        
+
 openstreetmap(Q) ->
     Url = "http://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q="++Q,
     case get_json(Url) of
@@ -217,10 +217,10 @@ get_json(Url) ->
     lager:debug("Geo lookup: ~p", [Url]),
     case httpc:request(get, {Url, []}, [{autoredirect, true}, {relaxed, true}, {timeout, 10000}], []) of
         {ok, {
-            {_HTTP, 200, _OK},
-            Headers,
-            Body
-        }} ->
+           {_HTTP, 200, _OK},
+           Headers,
+           Body
+          }} ->
             case proplists:get_value("content-type", Headers) of
                 "application/json" ++ _ ->
                     {ok, mochijson2:decode(Body)};
@@ -240,11 +240,11 @@ get_json(Url) ->
 
 q(R, Context) ->
     Fs = iolist_to_binary([
-        p(address_street1, $,, R),
-        p(address_city, $,, R),
-        p(address_state, $,, R),
-        p(address_postcode, $,, R)
-    ]),
+                           p(address_street1, $,, R),
+                           p(address_city, $,, R),
+                           p(address_state, $,, R),
+                           p(address_postcode, $,, R)
+                          ]),
     case Fs of
         <<>> ->
             {ok, country, iolist_to_binary(p(address_country, <<>>, R))};
@@ -268,3 +268,4 @@ country_name(undefined, _Context) -> <<>>;
 country_name(<<"gb-nir">>, _Context) -> <<"Northern Ireland">>;
 country_name(Iso, Context) ->
     m_l10n:country_name(Iso, en, Context).
+
