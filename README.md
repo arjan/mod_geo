@@ -6,6 +6,20 @@ Support for displaying maps and adding geographical locations to
 
 Uses Google Maps for display of maps in the admin.
 
+This module is a fork of
+(mod_geo)[https://github.com/zotonic/mod_geomap], but has been
+simplified: Google Maps is used in the admin interface, and the pivot
+columns are no longer quadtile encoded but just 2 floating-point
+columns in the rsc table, for portability and ease of querying.
+
+
+Configuration
+-------------
+
+For Google Maps to work, add a config key called `mod_geo.api_key`
+which must contain a valid Google Maps API key.
+
+
 
 Search query: geo_nearby
 ------------------------
