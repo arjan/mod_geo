@@ -18,4 +18,9 @@
 
 <span id="geomap-config" data-latitude="{{ id.location_lat }}" data-longitude="{{ id.location_lng }}" data-element="{{ #geomap }}"></span>
 
+<input id="location_zoom_level" type="hidden" name="location_zoom_level" value="{{ m.rsc[id].location_zoom_level }}" />
 
+
+{% javascript %}
+    setupAdminGeoMap('{{ id.location_lat }}', '{{ id.location_lng }}', '{{ #geomap }}', '{{ id.location_zoom_level }}');
+{% endjavascript %}

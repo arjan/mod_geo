@@ -72,7 +72,7 @@ observe_pivot_fields(#pivot_fields{id=Id, rsc=R}, KVs, Context) ->
                 reset -> 
                     KVs;
                 {ok, Lat, Long, QHash} ->
-                    m_rsc:update(Id, [{location_lat, Lat}, {location_lng, Long}, {geocode_qhash, QHash}], Context),
+                    m_rsc:update(Id, [{location_lat, Lat}, {location_lng, Long}, {geocode_qhash, QHash}], z_acl:sudo(Context)),
                     KVs;
                 ok -> 
                     KVs
