@@ -1,6 +1,24 @@
+%% @author Arjan Scherpenisse <arjan@miraclethings.nl>
+%% @copyright 2014 Arjan Scherpenisse
+%% @doc Geo search functions
+
+%% Copyright 2014 Arjan Scherpenisse
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%% 
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%% 
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
 -module(z_geo_search).
 
--export([search_query/2]).
+-export([search_query/2, get_query_center/2]).
 
 -include_lib("zotonic.hrl").
 
@@ -15,7 +33,7 @@ search_query(#search_query{search={geo_nearby, Args}}, Context) ->
 
     Distance = z_convert:to_float(proplists:get_value(distance, Args, 10)),
     {Lat, Lng} = get_query_center(Args, Context),
-    {LatMin, LngMin, LatMax, LngMax} = get_lat_lng_bounds(Lat, Lng, Distance),
+    {LatMin, LngMin, LatMax, LngMax} = z_geo_support:get_lat_lng_bounds(Lat, Lng, Distance),
     
     #search_sql{
        select="r.id",
@@ -50,24 +68,3 @@ get_query_center(Args, Context) ->
             {z_convert:to_float(Lat),
              z_convert:to_float(Lng)}
     end.
-
-
-
-%% @doc see http://stackoverflow.com/questions/12424710/php-finding-latitude-and-longitude-boundaries-based-on-a-central-lat-lng-and-di
-%% Radius is in kilometers.
-get_lat_lng_bounds(Lat, Lng, Radius) ->
-    EarthRadius = 6371.009,
-    Fraq = Radius / EarthRadius,
-
-    LatMax = Lat + rad2deg(Fraq),
-    LatMin = Lat - rad2deg(Fraq),
-
-    %% longitude boundaries (longitude gets smaller when latitude increases)
-    LngMax = Lng + rad2deg(Fraq) / math:cos(deg2rad(Lat)),
-    LngMin = Lng - rad2deg(Fraq) / math:cos(deg2rad(Lat)),
-
-    {LatMin, LngMin, LatMax, LngMax}.
-
-
-rad2deg(Rad) -> Rad * 57.29577951308232. %% angle / Math.PI * 180
-deg2rad(Deg) -> Deg * 0.01745329251994329.
