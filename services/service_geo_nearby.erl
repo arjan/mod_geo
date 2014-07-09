@@ -15,7 +15,7 @@ process_get(_, Context) ->
     R=z_search:search({geo_nearby, Args}, Context),
     
     {Lat, Lng} = z_geo_search:get_query_center(Args, Context),
-    {array, map_results(R, Lat, Lng, Context)}.
+    {array, lists:sort(map_results(R, Lat, Lng, Context))}.
 
 
 map_results(#search_result{result=Ids}, Lat, Lng, Context) ->
