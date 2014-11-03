@@ -93,6 +93,9 @@ optional_geocode(R, Context) ->
             case q(R, Context) of
                 {ok, _, <<>>} ->
                     reset;
+                {ok, country, _} ->
+                    %% dont do automatic geocoding when only country is known
+                    reset;
                 {ok, Type, Q} ->
                     LocHash = lists:flatten(z_utils:checksum(Q, Context)),
                     case proplists:get_value(pivot_geocode_qhash, R) of
