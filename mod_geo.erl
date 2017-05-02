@@ -30,6 +30,7 @@
     event/2,
     observe_search_query/2,
     observe_pivot_fields/3,
+    find_geocode_api/4,
     find_geocode_api/3
    ]).
 
@@ -39,14 +40,19 @@
 %% @doc Handle an address lookup from the admin.
 %% @todo Maybe add check if the user is allowed to use the admin.
 event(#postback_notify{message="address_lookup"}, Context) ->
-    {ok, Type, Q} = q([
-                       {address_street_1, z_context:get_q("street", Context)},
-                       {address_city, z_context:get_q("city", Context)},
-                       {address_state, z_context:get_q("state", Context)},
-                       {address_postcode, z_context:get_q("postcode", Context)},
-                       {address_country, z_context:get_q("country", Context)}
-                      ], Context),
-    case find_geocode_api(Q, Type, Context) of
+    Fields = [
+        {address_street_1, z_context:get_q("street", Context)},
+        {address_city, z_context:get_q("city", Context)},
+        {address_state, z_context:get_q("state", Context)},
+        {address_postcode, z_context:get_q("postcode", Context)},
+        {address_country, z_context:get_q("country", Context)},
+        {address_country_name, z_context:get_q("country_name", Context)}
+    ],
+
+    {ok, Type, Qmaps} = q(Fields, address_country, Context),
+    {ok, _Type2, Qosm} = q(Fields, address_country_name, Context),
+
+    case find_geocode_api(Qmaps, Qosm, Type, Context) of
         {error, _} ->
             z_script:add_script("map_mark_location_error();", Context);
         {ok, {Lat, Long}} ->
@@ -104,7 +110,8 @@ optional_geocode(R, Context) ->
                             ok;
                         _ ->
                                                 % Changed, and we are doing automatic lookups
-                            case find_geocode_api(Q, Type, Context) of
+                            Qosm = q(R, address_country_name, Context),
+                            case find_geocode_api(Q, Qosm, Type, Context) of
                                 {error, _} ->
                                     reset;
                                 {ok, {NewLat,NewLong}} ->
@@ -114,16 +121,19 @@ optional_geocode(R, Context) ->
             end
     end.
 
+find_geocode_api(Q, Type, Context) ->
+    find_geocode_api(Q, Q, Type, Context).
 
 %% @doc Check with Google and OpenStreetMap if they know the address
-find_geocode_api(Q, country, _Context) ->
-    Qq = mochiweb_util:quote_plus(Q),
+find_geocode_api(_Qmaps, Qosm, country, _Context) ->
+    Qq = mochiweb_util:quote_plus(Qosm),
     openstreetmap(Qq);
-find_geocode_api(Q, _Type, Context) ->
-    Qq = mochiweb_util:quote_plus(Q),
+find_geocode_api(Qmaps, Qosm,  _Type, Context) ->
+    Qq = mochiweb_util:quote_plus(Qmaps),
     case googlemaps_check(Qq, Context) of
         {error, _} ->
-            openstreetmap(Qq);
+            Qqo = mochiweb_util:quote_plus(Qosm),
+            openstreetmap(Qqo);
         {ok, {_Lat, _Long}} = Ok->
             Ok
     end.
@@ -242,17 +252,20 @@ get_json(Url) ->
 
 
 q(R, Context) ->
+    q(R, address_country, Context).
+
+q(R, CountryField, Context) ->
     Fs = iolist_to_binary([
-                           p(address_street_1, $,, R),
-                           p(address_city, $,, R),
-                           p(address_state, $,, R),
-                           p(address_postcode, $,, R)
-                          ]),
+        p(address_street_1, $,, R),
+        p(address_city, $,, R),
+        p(address_state, $,, R),
+        p(address_postcode, $,, R)
+    ]),
     case Fs of
         <<>> ->
-            {ok, country, iolist_to_binary(p(address_country, <<>>, R))};
-        _ -> 
-            Country = iolist_to_binary(country_name(proplists:get_value(address_country, R), Context)),
+            {ok, country, iolist_to_binary(p(CountryField, <<>>, R))};
+        _ ->
+            Country = iolist_to_binary(country_name(p(CountryField, <<>>, R), Context)),
             {ok, full, <<Fs/binary, Country/binary>>}
     end.
 
