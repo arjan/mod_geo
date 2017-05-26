@@ -7,6 +7,18 @@
             {% wire id="apikey" type="blur" action={config_toggle module="mod_geo" key="api_key" on="keyup"} %}
         </div>
     </div>
+    <div class="control-group">
+        <label class="control-label" for="startingpoint">{_ Google maps starting point _}</label>
+        <div class="controls">
+            {% if m.config.mod_geo.api_key.value %}
+                <div id="{{ #lazy }}">
+                    {% lazy action={update target=#lazy id=id template="_admin_configure_map.tpl"}%}
+                </div>
+            {% else %}
+                {_ First add the Google maps API key _}
+            {% endif %}
+        </div>
+    </div>
 
 </div>
 
