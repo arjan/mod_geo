@@ -34,5 +34,5 @@
 
 
 {% javascript %}
-    setupAdminGeoMap('{{ id.location_lat }}', '{{ id.location_lng }}', '{{ #geomap }}', '{{ id.location_zoom_level }}');
+    setupAdminGeoMap('{{ id.location_lat }}', '{{ id.location_lng }}', '{{ #geomap }}', '{{ id.location_zoom_level }}', '{{ m.config.mod_geo.location_lat.value|escape }}', '{{ m.config.mod_geo.location_lng.value|escape }}', '{{ m.config.mod_geo.location_zoom_level.value|escape }}');
 {% endjavascript %}
